@@ -1,607 +1,1031 @@
-```react
-import React, { useState, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw, Edit2, Eraser, ChevronLeft, ChevronRight, Trophy, X, Hash, Leaf, Bird, Trees, Coffee, Lightbulb } from 'lucide-react';
+```html
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>森林護眼數獨</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-// --- 偽亂數產生器 ---
-function mulberry32(a) {
-  return function() {
-    var t = a += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  }
-}
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-// --- 數獨核心邏輯與生成器 ---
-const BLANK = 0;
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .touch-manipulation { touch-action: manipulation; }
+    </style>
+</head>
+<body class="bg-[#e6f4ea] text-[#4a554a] font-sans selection:bg-[#c2e2c9] overscroll-none">
+    
+    <div id="root"></div>
 
-function isValid(board, row, col, num) {
-  for (let i = 0; i < 9; i++) {
-    if (board[row][i] === num) return false;
-    if (board[i][col] === num) return false;
-    const boxRow = Math.floor(row / 3) * 3 + Math.floor(i / 3);
-    const boxCol = Math.floor(col / 3) * 3 + i % 3;
-    if (board[boxRow][boxCol] === num) return false;
-  }
-  return true;
-}
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
 
-function countSolutions(board, limit = 2) {
-  let solutions = 0;
-
-  function getBestCell() {
-    let minOptions = 10;
-    let bestRow = -1;
-    let bestCol = -1;
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        if (board[r][c] === BLANK) {
-          let options = 0;
-          for (let n = 1; n <= 9; n++) {
-            if (isValid(board, r, c, n)) options++;
-          }
-          if (options < minOptions) {
-            minOptions = options;
-            bestRow = r;
-            bestCol = c;
+        // --- 偽亂數產生器 ---
+        function mulberry32(a) {
+          return function() {
+            var t = a += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
           }
         }
-      }
-    }
-    return { r: bestRow, c: bestCol, options: minOptions };
-  }
 
-  function backtrack() {
-    if (solutions >= limit) return;
+        // --- 數獨核心邏輯與生成器 ---
+        const BLANK = 0;
 
-    let best = getBestCell();
-    if (best.r === -1) {
-      solutions++;
-      return;
-    }
-
-    if (best.options === 0) return;
-
-    for (let n = 1; n <= 9; n++) {
-      if (isValid(board, best.r, best.c, n)) {
-        board[best.r][best.c] = n;
-        backtrack();
-        if (solutions >= limit) {
-          board[best.r][best.c] = BLANK;
-          return;
+        function isValid(board, row, col, num) {
+          for (let i = 0; i < 9; i++) {
+            if (board[row][i] === num) return false;
+            if (board[i][col] === num) return false;
+            const boxRow = Math.floor(row / 3) * 3 + Math.floor(i / 3);
+            const boxCol = Math.floor(col / 3) * 3 + i % 3;
+            if (board[boxRow][boxCol] === num) return false;
+          }
+          return true;
         }
-        board[best.r][best.c] = BLANK;
-      }
-    }
-  }
 
-  backtrack();
-  return solutions;
-}
+        function countSolutions(board, limit = 2) {
+          let solutions = 0;
+          function getBestCell() {
+            let minOptions = 10;
+            let bestRow = -1;
+            let bestCol = -1;
+            for (let r = 0; r < 9; r++) {
+              for (let c = 0; c < 9; c++) {
+                if (board[r][c] === BLANK) {
+                  let options = 0;
+                  for (let n = 1; n <= 9; n++) {
+                    if (isValid(board, r, c, n)) options++;
+                  }
+                  if (options < minOptions) {
+                    minOptions = options;
+                    bestRow = r;
+                    bestCol = c;
+                  }
+                }
+              }
+            }
+            return { r: bestRow, c: bestCol, options: minOptions };
+          }
 
-function generateSudoku(level, puzzleId) {
-  const seed = level * 1000 + puzzleId;
-  const random = mulberry32(seed);
-  
-  const targetClues = {
-    1: 45, 2: 43, 3: 41, 4: 39, 5: 37, 
-    6: 35, 7: 33, 8: 31, 9: 29, 10: 27 
-  }[level] || 35;
+          function backtrack() {
+            if (solutions >= limit) return;
+            let best = getBestCell();
+            if (best.r === -1) {
+              solutions++;
+              return;
+            }
+            if (best.options === 0) return;
+            for (let n = 1; n <= 9; n++) {
+              if (isValid(board, best.r, best.c, n)) {
+                board[best.r][best.c] = n;
+                backtrack();
+                if (solutions >= limit) {
+                  board[best.r][best.c] = BLANK;
+                  return;
+                }
+                board[best.r][best.c] = BLANK;
+              }
+            }
+          }
+          backtrack();
+          return solutions;
+        }
 
-  let board = Array.from({ length: 9 }, () => Array(9).fill(BLANK));
+        function generateSudoku(level, puzzleId) {
+          const seed = level * 1000 + puzzleId;
+          const random = mulberry32(seed);
+          
+          const targetClues = {
+            1: 45, 2: 43, 3: 41, 4: 39, 5: 37, 
+            6: 35, 7: 33, 8: 31, 9: 29, 10: 27 
+          }[level] || 35;
 
-  for (let i = 0; i < 9; i += 3) {
-    let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    for (let j = nums.length - 1; j > 0; j--) {
-      const k = Math.floor(random() * (j + 1));
-      [nums[j], nums[k]] = [nums[k], nums[j]];
-    }
-    let idx = 0;
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 3; c++) {
-        board[i + r][i + c] = nums[idx++];
-      }
-    }
-  }
+          let board = Array.from({ length: 9 }, () => Array(9).fill(BLANK));
 
-  function solveFull() {
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        if (board[r][c] === BLANK) {
-          let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-          for (let j = nums.length - 1; j > 0; j--) {
+          for (let i = 0; i < 9; i += 3) {
+            let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            for (let j = nums.length - 1; j > 0; j--) {
+              const k = Math.floor(random() * (j + 1));
+              [nums[j], nums[k]] = [nums[k], nums[j]];
+            }
+            let idx = 0;
+            for (let r = 0; r < 3; r++) {
+              for (let c = 0; c < 3; c++) {
+                board[i + r][i + c] = nums[idx++];
+              }
+            }
+          }
+
+          function solveFull() {
+            for (let r = 0; r < 9; r++) {
+              for (let c = 0; c < 9; c++) {
+                if (board[r][c] === BLANK) {
+                  let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+                  for (let j = nums.length - 1; j > 0; j--) {
+                    const k = Math.floor(random() * (j + 1));
+                    [nums[j], nums[k]] = [nums[k], nums[j]];
+                  }
+                  for (let n of nums) {
+                    if (isValid(board, r, c, n)) {
+                      board[r][c] = n;
+                      if (solveFull()) return true;
+                      board[r][c] = BLANK;
+                    }
+                  }
+                  return false;
+                }
+              }
+            }
+            return true;
+          }
+          solveFull();
+
+          const solution = board.map(row => [...row]);
+
+          let positions = [];
+          for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+              positions.push({ r, c });
+            }
+          }
+          for (let j = positions.length - 1; j > 0; j--) {
             const k = Math.floor(random() * (j + 1));
-            [nums[j], nums[k]] = [nums[k], nums[j]];
+            [positions[j], positions[k]] = [positions[k], positions[j]];
           }
-          for (let n of nums) {
-            if (isValid(board, r, c, n)) {
-              board[r][c] = n;
-              if (solveFull()) return true;
-              board[r][c] = BLANK;
+
+          let clues = 81;
+          for (let pos of positions) {
+            if (clues <= targetClues) break;
+            if (board[pos.r][pos.c] === BLANK) continue;
+
+            const symR = 8 - pos.r;
+            const symC = 8 - pos.c;
+
+            const backup1 = board[pos.r][pos.c];
+            const backup2 = board[symR][symC];
+
+            board[pos.r][pos.c] = BLANK;
+            board[symR][symC] = BLANK;
+
+            if (countSolutions(board.map(row => [...row]), 2) !== 1) {
+              board[pos.r][pos.c] = backup1;
+              board[symR][symC] = backup2;
+            } else {
+              clues -= (pos.r === symR && pos.c === symC) ? 1 : 2;
             }
           }
-          return false;
+
+          return { puzzle: board, solution };
         }
-      }
-    }
-    return true;
-  }
-  solveFull();
 
-  const solution = board.map(row => [...row]);
+        // --- 本地儲存管理 ---
+        const STORAGE_KEY = 'forest_sudoku_records_v1'; 
+        const STATE_KEY = 'forest_sudoku_state_v1';
 
-  let positions = [];
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      positions.push({ r, c });
-    }
-  }
-  for (let j = positions.length - 1; j > 0; j--) {
-    const k = Math.floor(random() * (j + 1));
-    [positions[j], positions[k]] = [positions[k], positions[j]];
-  }
-
-  let clues = 81;
-  for (let pos of positions) {
-    if (clues <= targetClues) break;
-    if (board[pos.r][pos.c] === BLANK) continue;
-
-    const symR = 8 - pos.r;
-    const symC = 8 - pos.c;
-
-    const backup1 = board[pos.r][pos.c];
-    const backup2 = board[symR][symC];
-
-    board[pos.r][pos.c] = BLANK;
-    board[symR][symC] = BLANK;
-
-    if (countSolutions(board.map(row => [...row]), 2) !== 1) {
-      board[pos.r][pos.c] = backup1;
-      board[symR][symC] = backup2;
-    } else {
-      clues -= (pos.r === symR && pos.c === symC) ? 1 : 2;
-    }
-  }
-
-  return { puzzle: board, solution };
-}
-
-// --- 本地儲存管理 ---
-const STORAGE_KEY = 'forest_sudoku_records_v1'; 
-const STATE_KEY = 'forest_sudoku_state_v1';
-
-function getRecords() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : {};
-  } catch (e) {
-    return {};
-  }
-}
-
-function saveRecord(level, puzzleId, time) {
-  try {
-    const records = getRecords();
-    const key = `${level}-${puzzleId}`;
-    if (!records[key] || time < records[key].time) {
-      records[key] = { time, date: new Date().toISOString() };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    }
-  } catch (e) {
-    console.error("無法儲存記錄", e);
-  }
-}
-
-function saveCurrentState(level, puzzleId) {
-  try {
-    localStorage.setItem(STATE_KEY, JSON.stringify({ level, puzzleId }));
-  } catch (e) {}
-}
-
-function loadCurrentState() {
-  try {
-    const data = localStorage.getItem(STATE_KEY);
-    return data ? JSON.parse(data) : { level: 1, puzzleId: 1 };
-  } catch (e) {
-    return { level: 1, puzzleId: 1 };
-  }
-}
-
-const FOREST_LEVELS = [
-  "小刺蝟出發", "松鼠的果實", "兔子躍動", "狐狸的足跡", "貓頭鷹守望", 
-  "小鹿探險", "野狼長嘯", "大熊覓食", "精靈低語", "森林之王"
-];
-
-// 計算目前等級應有的提示次數 (等級 1: 5 次, 等級 10: 15 次)
-const calculateHintsForLevel = (lvl) => {
-  return Math.round(5 + (lvl - 1) * (10 / 9));
-};
-
-// --- 主元件 ---
-export default function App() {
-  const [level, setLevel] = useState(1);
-  const [puzzleId, setPuzzleId] = useState(1);
-  
-  const [board, setBoard] = useState([]);
-  const [solution, setSolution] = useState([]);
-  const [selectedCell, setSelectedCell] = useState(null);
-  const [isNotesMode, setIsNotesMode] = useState(false);
-  
-  const [history, setHistory] = useState([]);
-  const [timer, setTimer] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isSolved, setIsSolved] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const [showRecords, setShowRecords] = useState(false);
-  
-  // 護眼提醒相關狀態
-  const [sessionTime, setSessionTime] = useState(0); 
-  const [showRestReminder, setShowRestReminder] = useState(false);
-
-  // 提示功能相關狀態
-  const [hintsRemaining, setHintsRemaining] = useState(5);
-
-  useEffect(() => {
-    const savedState = loadCurrentState();
-    setLevel(savedState.level || 1);
-    setPuzzleId(savedState.puzzleId || 1);
-  }, []);
-
-  const initGame = useCallback((l, p) => {
-    setIsLoading(true);
-    setIsPlaying(false);
-    saveCurrentState(l, p);
-    
-    // 根據等級設定提示次數
-    setHintsRemaining(calculateHintsForLevel(l));
-
-    setTimeout(() => {
-      const { puzzle, solution: sol } = generateSudoku(l, p);
-      
-      const newBoard = puzzle.map((row, rIdx) => 
-        row.map((val, cIdx) => ({
-          value: val,
-          isGiven: val !== BLANK,
-          notes: new Set(),
-          error: false
-        }))
-      );
-
-      setBoard(newBoard);
-      setSolution(sol);
-      setHistory([]);
-      setTimer(0);
-      setIsSolved(false);
-      setSelectedCell(null);
-      setIsPlaying(true);
-      setIsLoading(false);
-    }, 50);
-  }, []);
-
-  useEffect(() => {
-    if (level && puzzleId) {
-        initGame(level, puzzleId);
-    }
-  }, [level, puzzleId, initGame]);
-
-  // 遊戲計時器與整體 session 計時器 (護眼提醒用)
-  useEffect(() => {
-    let interval;
-    if (isPlaying && !isSolved && !isLoading) {
-      interval = setInterval(() => {
-        setTimer((t) => t + 1);
-        setSessionTime((st) => {
-          const newTime = st + 1;
-          // 15 分鐘 = 900 秒，觸發提醒
-          if (newTime === 900) {
-            setShowRestReminder(true);
-            setIsPlaying(false); // 自動暫停遊戲
-          }
-          return newTime;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, isSolved, isLoading]);
-
-  const formatTime = (seconds) => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
-
-  const handleNextLevel = () => {
-    if (puzzleId < 20) {
-      setPuzzleId(p => p + 1);
-    } else if (level < 10) {
-      setLevel(l => l + 1);
-      setPuzzleId(1);
-    } else {
-      setPuzzleId(1);
-    }
-  };
-
-  const checkWinCondition = (currentBoard) => {
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        if (currentBoard[r][c].value !== solution[r][c]) {
-          return false;
+        function getRecords() {
+          try {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : {};
+          } catch (e) { return {}; }
         }
-      }
-    }
-    return true;
-  };
 
-  const updateErrors = (currentBoard) => {
-    const newBoard = currentBoard.map(row => row.map(cell => ({ ...cell, error: false })));
-    
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        const val = newBoard[r][c].value;
-        if (val === BLANK) continue;
-        
-        let isErr = false;
-        for (let i = 0; i < 9; i++) {
-          if (i !== c && newBoard[r][i].value === val) isErr = true;
-          if (i !== r && newBoard[i][c].value === val) isErr = true;
-        }
-        const boxR = Math.floor(r / 3) * 3;
-        const boxC = Math.floor(c / 3) * 3;
-        for (let i = 0; i < 3; i++) {
-          for (let j = 0; j < 3; j++) {
-            const rr = boxR + i;
-            const cc = boxC + j;
-            if ((rr !== r || cc !== c) && newBoard[rr][cc].value === val) {
-              isErr = true;
+        function saveRecord(level, puzzleId, time) {
+          try {
+            const records = getRecords();
+            const key = `${level}-${puzzleId}`;
+            if (!records[key] || time < records[key].time) {
+              records[key] = { time, date: new Date().toISOString() };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
             }
+          } catch (e) {}
+        }
+
+        function saveCurrentState(level, puzzleId) {
+          try {
+            localStorage.setItem(STATE_KEY, JSON.stringify({ level, puzzleId }));
+          } catch (e) {}
+        }
+
+        function loadCurrentState() {
+          try {
+            const data = localStorage.getItem(STATE_KEY);
+            return data ? JSON.parse(data) : { level: 1, puzzleId: 1 };
+          } catch (e) {
+            return { level: 1, puzzleId: 1 };
           }
         }
-        if (isErr) newBoard[r][c].error = true;
-      }
-    }
-    return newBoard;
-  };
 
-  const clearRelatedNotes = (currentBoard, r, c, val) => {
-    const newBoard = currentBoard.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
-    for (let i = 0; i < 9; i++) {
-      newBoard[r][i].notes.delete(val);
-      newBoard[i][c].notes.delete(val);
-    }
-    const boxR = Math.floor(r / 3) * 3;
-    const boxC = Math.floor(c / 3) * 3;
-    for (let i = 0; i < 3; i++) {
-      for (let j = 0; j < 3; j++) {
-        newBoard[boxR + i][boxC + j].notes.delete(val);
-      }
-    }
-    return newBoard;
-  };
+        const FOREST_LEVELS = [
+          "小刺蝟出發", "松鼠的果實", "兔子躍動", "狐狸的足跡", "貓頭鷹守望", 
+          "小鹿探險", "野狼長嘯", "大熊覓食", "精靈低語", "森林之王"
+        ];
 
-  const handleInput = useCallback((num) => {
-    if (!selectedCell || isSolved || !isPlaying) return;
-    const [r, c] = selectedCell;
-    if (board[r][c].isGiven) return;
+        const calculateHintsForLevel = (lvl) => Math.round(5 + (lvl - 1) * (10 / 9));
 
-    setHistory(prev => [...prev, board.map(row => row.map(cell => ({...cell, notes: new Set(cell.notes)})))]);
+        // --- 主元件 ---
+        function App() {
+          const [level, setLevel] = useState(1);
+          const [puzzleId, setPuzzleId] = useState(1);
+          
+          const [board, setBoard] = useState([]);
+          const [solution, setSolution] = useState([]);
+          const [selectedCell, setSelectedCell] = useState(null);
+          const [isNotesMode, setIsNotesMode] = useState(false);
+          
+          const [history, setHistory] = useState([]);
+          const [timer, setTimer] = useState(0);
+          const [isPlaying, setIsPlaying] = useState(false);
+          const [isSolved, setIsSolved] = useState(false);
+          const [isLoading, setIsLoading] = useState(true);
+          
+          const [showRecords, setShowRecords] = useState(false);
+          const [sessionTime, setSessionTime] = useState(0); 
+          const [showRestReminder, setShowRestReminder] = useState(false);
+          const [hintsRemaining, setHintsRemaining] = useState(5);
 
-    let newBoard = board.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
+          useEffect(() => {
+            const savedState = loadCurrentState();
+            setLevel(savedState.level || 1);
+            setPuzzleId(savedState.puzzleId || 1);
+          }, []);
 
-    if (num === BLANK) {
-      newBoard[r][c].value = BLANK;
-      newBoard[r][c].error = false;
-    } else if (isNotesMode) {
-      if (newBoard[r][c].value === BLANK) {
-        if (newBoard[r][c].notes.has(num)) {
-          newBoard[r][c].notes.delete(num);
-        } else {
-          newBoard[r][c].notes.add(num);
-        }
-      }
-    } else {
-      if (newBoard[r][c].value === num) {
-        newBoard[r][c].value = BLANK; 
-      } else {
-        newBoard[r][c].value = num;
-        newBoard = clearRelatedNotes(newBoard, r, c, num);
-      }
-    }
+          const initGame = useCallback((l, p) => {
+            setIsLoading(true);
+            setIsPlaying(false);
+            saveCurrentState(l, p);
+            setHintsRemaining(calculateHintsForLevel(l));
 
-    newBoard = updateErrors(newBoard);
-    setBoard(newBoard);
+            setTimeout(() => {
+              const { puzzle, solution: sol } = generateSudoku(l, p);
+              const newBoard = puzzle.map((row) => 
+                row.map((val) => ({
+                  value: val,
+                  isGiven: val !== BLANK,
+                  notes: new Set(),
+                  error: false
+                }))
+              );
+              setBoard(newBoard);
+              setSolution(sol);
+              setHistory([]);
+              setTimer(0);
+              setIsSolved(false);
+              setSelectedCell(null);
+              setIsPlaying(true);
+              setIsLoading(false);
+            }, 50);
+          }, []);
 
-    if (checkWinCondition(newBoard)) {
-      setIsSolved(true);
-      setIsPlaying(false);
-      saveRecord(level, puzzleId, timer);
-    }
-  }, [board, selectedCell, isNotesMode, isSolved, isPlaying, solution, level, puzzleId, timer]);
+          useEffect(() => {
+            if (level && puzzleId) { initGame(level, puzzleId); }
+          }, [level, puzzleId, initGame]);
 
-  // 提示功能處理
-  const useHint = useCallback(() => {
-    if (!selectedCell || isSolved || !isPlaying || hintsRemaining <= 0) return;
-    const [r, c] = selectedCell;
-    
-    // 如果該格已經是預設數字，或是已經填入正確答案，則不消耗提示
-    if (board[r][c].isGiven || board[r][c].value === solution[r][c]) return;
+          useEffect(() => {
+            let interval;
+            if (isPlaying && !isSolved && !isLoading) {
+              interval = setInterval(() => {
+                setTimer((t) => t + 1);
+                setSessionTime((st) => {
+                  const newTime = st + 1;
+                  if (newTime === 900) {
+                    setShowRestReminder(true);
+                    setIsPlaying(false);
+                  }
+                  return newTime;
+                });
+              }, 1000);
+            }
+            return () => clearInterval(interval);
+          }, [isPlaying, isSolved, isLoading]);
 
-    // 取得正確答案
-    const correctValue = solution[r][c];
+          const formatTime = (seconds) => {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+          };
 
-    // 儲存歷史紀錄
-    setHistory(prev => [...prev, board.map(row => row.map(cell => ({...cell, notes: new Set(cell.notes)})))]);
+          const handleNextLevel = () => {
+            if (puzzleId < 20) {
+              setPuzzleId(p => p + 1);
+            } else if (level < 10) {
+              setLevel(l => l + 1);
+              setPuzzleId(1);
+            } else {
+              setPuzzleId(1);
+            }
+          };
 
-    // 更新盤面
-    let newBoard = board.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
-    newBoard[r][c].value = correctValue;
-    newBoard = clearRelatedNotes(newBoard, r, c, correctValue);
-    newBoard = updateErrors(newBoard);
-    
-    setBoard(newBoard);
-    setHintsRemaining(prev => prev - 1);
+          const checkWinCondition = (currentBoard) => {
+            for (let r = 0; r < 9; r++) {
+              for (let c = 0; c < 9; c++) {
+                if (currentBoard[r][c].value !== solution[r][c]) return false;
+              }
+            }
+            return true;
+          };
 
-    if (checkWinCondition(newBoard)) {
-      setIsSolved(true);
-      setIsPlaying(false);
-      saveRecord(level, puzzleId, timer);
-    }
-  }, [board, selectedCell, isSolved, isPlaying, hintsRemaining, solution, level, puzzleId, timer]);
+          const updateErrors = (currentBoard) => {
+            const newBoard = currentBoard.map(row => row.map(cell => ({ ...cell, error: false })));
+            for (let r = 0; r < 9; r++) {
+              for (let c = 0; c < 9; c++) {
+                const val = newBoard[r][c].value;
+                if (val === BLANK) continue;
+                let isErr = false;
+                for (let i = 0; i < 9; i++) {
+                  if (i !== c && newBoard[r][i].value === val) isErr = true;
+                  if (i !== r && newBoard[i][c].value === val) isErr = true;
+                }
+                const boxR = Math.floor(r / 3) * 3;
+                const boxC = Math.floor(c / 3) * 3;
+                for (let i = 0; i < 3; i++) {
+                  for (let j = 0; j < 3; j++) {
+                    const rr = boxR + i;
+                    const cc = boxC + j;
+                    if ((rr !== r || cc !== c) && newBoard[rr][cc].value === val) isErr = true;
+                  }
+                }
+                if (isErr) newBoard[r][c].error = true;
+              }
+            }
+            return newBoard;
+          };
 
-  const undo = () => {
-    if (history.length === 0 || isSolved || !isPlaying) return;
-    const previousBoard = history[history.length - 1];
-    setBoard(previousBoard);
-    setHistory(prev => prev.slice(0, -1));
-  };
+          const clearRelatedNotes = (currentBoard, r, c, val) => {
+            const newBoard = currentBoard.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
+            for (let i = 0; i < 9; i++) {
+              newBoard[r][i].notes.delete(val);
+              newBoard[i][c].notes.delete(val);
+            }
+            const boxR = Math.floor(r / 3) * 3;
+            const boxC = Math.floor(c / 3) * 3;
+            for (let i = 0; i < 3; i++) {
+              for (let j = 0; j < 3; j++) {
+                newBoard[boxR + i][boxC + j].notes.delete(val);
+              }
+            }
+            return newBoard;
+          };
 
-  const isPeer = (r, c) => {
-    if (!selectedCell) return false;
-    const [sr, sc] = selectedCell;
-    return r === sr || c === sc || (Math.floor(r / 3) === Math.floor(sr / 3) && Math.floor(c / 3) === Math.floor(sc / 3));
-  };
+          const handleInput = useCallback((num) => {
+            if (!selectedCell || isSolved || !isPlaying) return;
+            const [r, c] = selectedCell;
+            if (board[r][c].isGiven) return;
 
-  const isSameNumber = (r, c) => {
-    if (!selectedCell) return false;
-    const [sr, sc] = selectedCell;
-    const selVal = board[sr][sc].value;
-    return selVal !== BLANK && board[r][c].value === selVal;
-  };
+            setHistory(prev => [...prev, board.map(row => row.map(cell => ({...cell, notes: new Set(cell.notes)})))]);
+            let newBoard = board.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
 
-  const dismissReminder = () => {
-    setShowRestReminder(false);
-    setSessionTime(0); // 重新計算 15 分鐘
-    setIsPlaying(true); // 恢復遊戲
-  };
+            if (num === BLANK) {
+              newBoard[r][c].value = BLANK;
+              newBoard[r][c].error = false;
+            } else if (isNotesMode) {
+              if (newBoard[r][c].value === BLANK) {
+                if (newBoard[r][c].notes.has(num)) newBoard[r][c].notes.delete(num);
+                else newBoard[r][c].notes.add(num);
+              }
+            } else {
+              if (newBoard[r][c].value === num) {
+                newBoard[r][c].value = BLANK; 
+              } else {
+                newBoard[r][c].value = num;
+                newBoard = clearRelatedNotes(newBoard, r, c, num);
+              }
+            }
 
-  return (
-    <div className="min-h-[100dvh] bg-[#e6f4ea] text-[#4a554a] font-sans flex flex-col items-center pt-2 pb-6 px-2 sm:px-4 selection:bg-[#c2e2c9]">
-      
-      <div className="w-full max-w-[420px] mb-3">
-        <div className="flex justify-between items-center mb-3 px-1">
-          <div>
-            <h1 className="text-2xl font-black text-[#2f4f2f] tracking-tight flex items-center gap-1.5">
-              <Trees className="text-[#4caf50]" size={26} />
-              森林數獨
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className={`text-xl font-mono font-bold ${!isPlaying ? 'text-[#8fa38f]' : 'text-[#3e5f3e]'}`}>
-              {formatTime(timer)}
-            </div>
-            <button 
-              onClick={() => setShowRecords(true)}
-              className="p-2 bg-[#d4ebd8] text-[#3e5f3e] rounded-full hover:bg-[#c2e2c9] transition shadow-sm border border-[#b8deb3]"
-            >
-              <Trophy size={18} />
-            </button>
-          </div>
-        </div>
+            newBoard = updateErrors(newBoard);
+            setBoard(newBoard);
 
-        <div className="bg-[#f0f7f1] p-2.5 rounded-2xl shadow-sm border border-[#cce8d1] flex justify-between items-center">
-          <select 
-            className="bg-transparent border-none text-[#2f4f2f] text-sm sm:text-base font-bold focus:ring-0 cursor-pointer p-1 outline-none max-w-[160px] truncate"
-            value={level}
-            onChange={(e) => setLevel(Number(e.target.value))}
-          >
-            {FOREST_LEVELS.map((name, i) => (
-              <option key={i+1} value={i+1}>Lv{i+1} {name}</option>
-            ))}
-          </select>
+            if (checkWinCondition(newBoard)) {
+              setIsSolved(true);
+              setIsPlaying(false);
+              saveRecord(level, puzzleId, timer);
+            }
+          }, [board, selectedCell, isNotesMode, isSolved, isPlaying, solution, level, puzzleId, timer]);
 
-          <div className="flex items-center gap-1 sm:gap-2">
-            <span className="text-xs font-bold text-[#8fa38f] flex items-center hidden sm:flex"><Hash size={12} className="mr-0.5"/></span>
-            <div className="flex items-center bg-[#e0f0e3] rounded-xl overflow-hidden p-0.5 border border-[#d1e8d5]">
-              <button 
-                onClick={() => setPuzzleId(p => Math.max(1, p - 1))}
-                className="p-1 sm:p-1.5 active:bg-[#cce8d1] rounded-lg text-[#3e5f3e] transition"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span className="w-8 text-center font-bold text-sm text-[#2f4f2f]">{puzzleId}</span>
-              <button 
-                onClick={() => setPuzzleId(p => Math.min(20, p + 1))}
-                className="p-1 sm:p-1.5 active:bg-[#cce8d1] rounded-lg text-[#3e5f3e] transition"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+          const useHint = useCallback(() => {
+            if (!selectedCell || isSolved || !isPlaying || hintsRemaining <= 0) return;
+            const [r, c] = selectedCell;
+            if (board[r][c].isGiven || board[r][c].value === solution[r][c]) return;
 
-      <div className="w-full max-w-[420px] relative flex flex-col">
-        
-        {isLoading && (
-          <div className="absolute inset-0 bg-[#e6f4ea]/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-3xl">
-            <Leaf className="text-[#4caf50] animate-bounce mb-3" size={32} />
-            <p className="text-[#3e5f3e] font-bold text-sm">正在森林深處尋找謎題...</p>
-          </div>
-        )}
-
-        {isSolved && (
-          <div className="absolute inset-0 bg-[#2f4f2f]/95 backdrop-blur-md z-20 flex flex-col items-center justify-center rounded-3xl shadow-2xl text-[#f0f7f1]">
-            <Bird size={72} className="text-[#a5d6a7] mb-4 animate-[bounce_2s_infinite]" />
-            <h2 className="text-3xl font-black mb-1">順利通關！</h2>
-            <p className="text-[#cce8d1] mb-8 font-mono text-lg font-bold">探索時間 {formatTime(timer)}</p>
+            const correctValue = solution[r][c];
+            setHistory(prev => [...prev, board.map(row => row.map(cell => ({...cell, notes: new Set(cell.notes)})))]);
             
-            <button 
-              onClick={handleNextLevel}
-              className="px-8 py-4 bg-[#e6f4ea] text-[#1b301b] font-black rounded-full active:scale-95 transition shadow-[0_4px_0_0_rgba(76,175,80,0.4)] flex items-center gap-2"
-            >
-              前往下一區 <ChevronRight size={20} />
-            </button>
-          </div>
-        )}
+            let newBoard = board.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
+            newBoard[r][c].value = correctValue;
+            newBoard = clearRelatedNotes(newBoard, r, c, correctValue);
+            newBoard = updateErrors(newBoard);
+            
+            setBoard(newBoard);
+            setHintsRemaining(prev => prev - 1);
 
-        {showRestReminder && (
-          <div className="absolute inset-0 bg-[#e6f4ea]/95 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-3xl shadow-xl text-[#2f4f2f] border-4 border-[#cce8d1] animate-in zoom-in-95 duration-300">
-            <Coffee size={64} className="text-[#8d6e63] mb-4" />
-            <h2 className="text-2xl font-black mb-2 text-[#4e342e]">眼睛需要休息囉！</h2>
-            <p className="text-[#6d4c41] mb-6 font-bold text-center px-6 leading-relaxed">
-              您已經探索森林 15 分鐘了。<br/>喝杯水，看看遠方的綠色植物吧！
-            </p>
-            <button 
-              onClick={dismissReminder}
-              className="px-8 py-3 bg-[#8d6e63] text-[#f5f5dc] font-black rounded-full active:scale-95 transition shadow-[0_4px_0_0_rgba(109,76,65,0.4)]"
-            >
-              我休息好了，繼續遊戲
-            </button>
-          </div>
-        )}
+            if (checkWinCondition(newBoard)) {
+              setIsSolved(true);
+              setIsPlaying(false);
+              saveRecord(level, puzzleId, timer);
+            }
+          }, [board, selectedCell, isSolved, isPlaying, hintsRemaining, solution, level, puzzleId, timer]);
 
-        <div className="bg-[#8b7355] p-2 rounded-2xl shadow-lg aspect-square w-full select-none touch-none mb-4">
-          <div className="grid grid-cols-9 grid-rows-9 h-full w-full bg-[#d2b48c] gap-px border-2 border-[#8b7355] rounded-lg overflow-hidden">
-            {board.map((row, r) => 
-              row.map((cell, c) => {
-                const isSelected = selectedCell?.[0] === r && selectedCell?.[1] === c;
-                const isRelated = !isSelected && isPeer(r, c);
-                const isSame = !isSelected && isSameNumber(r, c);
-                
-                let borderClasses = "";
-                if (c % 3 === 2 && c !== 8) borderClasses += " border-r-2 border-r-[#8b7355]";
-                if (r % 3 === 2 && r !== 8) borderClasses += " border-b-2 border-b-[#8b7355]";
+          const undo = () => {
+            if (history.length === 0 || isSolved || !isPlaying) return;
+            const previousBoard = history[history.length - 1];
+            setBoard(previousBoard);
+            setHistory(prev => prev.slice(0, -1));
+          };
 
-                let bgClass = "bg-[#f5f5dc]";
-                if (isSelected) bgClass = "bg-[#a3d3a7]"; 
-                else if (isSame) bgClass = "bg-[#cce8d1]";
-                else if (isRelated) bgClass = "bg-[#e8e4c9]";
-                
-                if (cell.error && !isSelected) bgClass = "bg-[#ffcccb]"; 
-                if (cell.error && isSelected) bgClass = "bg-[#ffb6b5]";
+          const isPeer = (r, c) => {
+            if (!selectedCell) return false;
+            const [sr, sc] = selectedCell;
+            return r === sr || c === sc || (Math.floor(r / 3) === Math.floor(sr / 3) && Math.floor(c / 3) === Math.floor(sc / 3));
+          };
 
-                let textClass = "text-[#5c4033]"; 
-                if (cell.isGiven) textClass = "text-[#3e2723] font-black"; 
-                else if (cell.error) textClass = "text-[#d32f2f] font-black";
-                else textClass = "text-[#1b5e20] font-bold";
+          const isSameNumber = (r, c) => {
+            if (!selectedCell) return false;
+            const [sr, sc] = selectedCell;
+            const selVal = board[sr][sc].value;
+            return selVal !== BLANK && board[r][c].value === selVal;
+          };
 
-                return (
-                  <div 
-                    key={`${r}-${c}`}
-                    className={`relative flex items-center justify-center cursor-pointer text-xl sm:text-2xl lg:text-3xl transition-colors duration-100 ${bgClass} ${borderClasses}`}
-                    onClick={() => setSelectedCell([r, c])}
+          const dismissReminder = () => {
+            setShowRestReminder(false);
+            setSessionTime(0); 
+            setIsPlaying(true); 
+          };
+
+          return (
+            <div className="flex flex-col items-center">
+              <div className="w-full max-w-[420px] mb-3 mt-4">
+                <div className="flex justify-between items-center mb-3 px-1">
+                  <div>
+                    <h1 className="text-2xl font-black text-[#2f4f2f] tracking-tight flex items-center gap-2">
+                      <i className="fa-solid fa-tree text-[#4caf50] text-2xl"></i>
+                      森林數獨
+                    </h1>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`text-xl font-mono font-bold ${!isPlaying ? 'text-[#8fa38f]' : 'text-[#3e5f3e]'}`}>
+                      {formatTime(timer)}
+                    </div>
+                    <button 
+                      onClick={() => setShowRecords(true)}
+                      className="w-10 h-10 flex items-center justify-center bg-[#d4ebd8] text-[#3e5f3e] rounded-full hover:bg-[#c2e2c9] transition shadow-sm border border-[#b8deb3]"
+                    >
+                      <i className="fa-solid fa-trophy text-lg"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-[#f0f7f1] p-2.5 rounded-2xl shadow-sm border border-[#cce8d1] flex justify-between items-center">
+                  <select 
+                    className="bg-transparent border-none text-[#2f4f2f] text-sm sm:text-base font-bold focus:ring-0 cursor-pointer p-1 outline-none max-w-[160px] truncate"
+                    value={level}
+                    onChange={(e) => setLevel(Number(e.target.value))}
                   >
-                    {cell.value !== BLANK ? (
-                      <span className={textClass}>{cell.value}</span>
-                    ) : (
-                      <div className="absolute inset-0.5 grid grid-cols-3 grid-rows-3 text-[0.5rem] sm:text-[0.6rem
+                    {FOREST_LEVELS.map((name, i) => (
+                      <option key={i+1} value={i+1}>Lv{i+1} {name}</option>
+                    ))}
+                  </select>
+
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <span className="text-xs font-bold text-[#8fa38f] hidden sm:flex items-center gap-1">
+                      <i className="fa-solid fa-hashtag text-xs"></i>
+                    </span>
+                    <div className="flex items-center bg-[#e0f0e3] rounded-xl overflow-hidden p-0.5 border border-[#d1e8d5]">
+                      <button onClick={() => setPuzzleId(p => Math.max(1, p - 1))} className="p-2 active:bg-[#cce8d1] rounded-lg text-[#3e5f3e]">
+                        <i className="fa-solid fa-chevron-left text-sm"></i>
+                      </button>
+                      <span className="w-8 text-center font-bold text-sm text-[#2f4f2f]">{puzzleId}</span>
+                      <button onClick={() => setPuzzleId(p => Math.min(20, p + 1))} className="p-2 active:bg-[#cce8d1] rounded-lg text-[#3e5f3e]">
+                        <i className="fa-solid fa-chevron-right text-sm"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full max-w-[420px] relative flex flex-col">
+                
+                {isLoading && (
+                  <div className="absolute inset-0 bg-[#e6f4ea]/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-3xl">
+                    <i className="fa-solid fa-leaf text-[#4caf50] animate-bounce mb-3 text-3xl"></i>
+                    <p className="text-[#3e5f3e] font-bold text-sm">正在森林深處尋找謎題.```html
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>森林護眼數獨</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .touch-manipulation { touch-action: manipulation; }
+    </style>
+</head>
+<body class="bg-[#e6f4ea] text-[#4a554a] font-sans selection:bg-[#c2e2c9] overscroll-none">
+    
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // --- 偽亂數產生器 ---
+        function mulberry32(a) {
+          return function() {
+            var t = a += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+          }
+        }
+
+        // --- 數獨核心邏輯與生成器 ---
+        const BLANK = 0;
+
+        function isValid(board, row, col, num) {
+          for (let i = 0; i < 9; i++) {
+            if (board[row][i] === num) return false;
+            if (board[i][col] === num) return false;
+            const boxRow = Math.floor(row / 3) * 3 + Math.floor(i / 3);
+            const boxCol = Math.floor(col / 3) * 3 + i % 3;
+            if (board[boxRow][boxCol] === num) return false;
+          }
+          return true;
+        }
+
+        function countSolutions(board, limit = 2) {
+          let solutions = 0;
+          function getBestCell() {
+            let minOptions = 10;
+            let bestRow = -1;
+            let bestCol = -1;
+            for (let r = 0; r < 9; r++) {
+              for (let c = 0; c < 9; c++) {
+                if (board[r][c] === BLANK) {
+                  let options = 0;
+                  for (let n = 1; n <= 9; n++) {
+                    if (isValid(board, r, c, n)) options++;
+                  }
+                  if (options < minOptions) {
+                    minOptions = options;
+                    bestRow = r;
+                    bestCol = c;
+                  }
+                }
+              }
+            }
+            return { r: bestRow, c: bestCol, options: minOptions };
+          }
+
+          function backtrack() {
+            if (solutions >= limit) return;
+            let best = getBestCell();
+            if (best.r === -1) {
+              solutions++;
+              return;
+            }
+            if (best.options === 0) return;
+            for (let n = 1; n <= 9; n++) {
+              if (isValid(board, best.r, best.c, n)) {
+                board[best.r][best.c] = n;
+                backtrack();
+                if (solutions >= limit) {
+                  board[best.r][best.c] = BLANK;
+                  return;
+                }
+                board[best.r][best.c] = BLANK;
+              }
+            }
+          }
+          backtrack();
+          return solutions;
+        }
+
+        function generateSudoku(level, puzzleId) {
+          const seed = level * 1000 + puzzleId;
+          const random = mulberry32(seed);
+          
+          const targetClues = {
+            1: 45, 2: 43, 3: 41, 4: 39, 5: 37, 
+            6: 35, 7: 33, 8: 31, 9: 29, 10: 27 
+          }[level] || 35;
+
+          let board = Array.from({ length: 9 }, () => Array(9).fill(BLANK));
+
+          for (let i = 0; i < 9; i += 3) {
+            let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            for (let j = nums.length - 1; j > 0; j--) {
+              const k = Math.floor(random() * (j + 1));
+              [nums[j], nums[k]] = [nums[k], nums[j]];
+            }
+            let idx = 0;
+            for (let r = 0; r < 3; r++) {
+              for (let c = 0; c < 3; c++) {
+                board[i + r][i + c] = nums[idx++];
+              }
+            }
+          }
+
+          function solveFull() {
+            for (let r = 0; r < 9; r++) {
+              for (let c = 0; c < 9; c++) {
+                if (board[r][c] === BLANK) {
+                  let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+                  for (let j = nums.length - 1; j > 0; j--) {
+                    const k = Math.floor(random() * (j + 1));
+                    [nums[j], nums[k]] = [nums[k], nums[j]];
+                  }
+                  for (let n of nums) {
+                    if (isValid(board, r, c, n)) {
+                      board[r][c] = n;
+                      if (solveFull()) return true;
+                      board[r][c] = BLANK;
+                    }
+                  }
+                  return false;
+                }
+              }
+            }
+            return true;
+          }
+          solveFull();
+
+          const solution = board.map(row => [...row]);
+
+          let positions = [];
+          for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+              positions.push({ r, c });
+            }
+          }
+          for (let j = positions.length - 1; j > 0; j--) {
+            const k = Math.floor(random() * (j + 1));
+            [positions[j], positions[k]] = [positions[k], positions[j]];
+          }
+
+          let clues = 81;
+          for (let pos of positions) {
+            if (clues <= targetClues) break;
+            if (board[pos.r][pos.c] === BLANK) continue;
+
+            const symR = 8 - pos.r;
+            const symC = 8 - pos.c;
+
+            const backup1 = board[pos.r][pos.c];
+            const backup2 = board[symR][symC];
+
+            board[pos.r][pos.c] = BLANK;
+            board[symR][symC] = BLANK;
+
+            if (countSolutions(board.map(row => [...row]), 2) !== 1) {
+              board[pos.r][pos.c] = backup1;
+              board[symR][symC] = backup2;
+            } else {
+              clues -= (pos.r === symR && pos.c === symC) ? 1 : 2;
+            }
+          }
+
+          return { puzzle: board, solution };
+        }
+
+        // --- 本地儲存管理 ---
+        const STORAGE_KEY = 'forest_sudoku_records_v1'; 
+        const STATE_KEY = 'forest_sudoku_state_v1';
+
+        function getRecords() {
+          try {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : {};
+          } catch (e) { return {}; }
+        }
+
+        function saveRecord(level, puzzleId, time) {
+          try {
+            const records = getRecords();
+            const key = `${level}-${puzzleId}`;
+            if (!records[key] || time < records[key].time) {
+              records[key] = { time, date: new Date().toISOString() };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            }
+          } catch (e) {}
+        }
+
+        function saveCurrentState(level, puzzleId) {
+          try {
+            localStorage.setItem(STATE_KEY, JSON.stringify({ level, puzzleId }));
+          } catch (e) {}
+        }
+
+        function loadCurrentState() {
+          try {
+            const data = localStorage.getItem(STATE_KEY);
+            return data ? JSON.parse(data) : { level: 1, puzzleId: 1 };
+          } catch (e) {
+            return { level: 1, puzzleId: 1 };
+          }
+        }
+
+        const FOREST_LEVELS = [
+          "小刺蝟出發", "松鼠的果實", "兔子躍動", "狐狸的足跡", "貓頭鷹守望", 
+          "小鹿探險", "野狼長嘯", "大熊覓食", "精靈低語", "森林之王"
+        ];
+
+        const calculateHintsForLevel = (lvl) => Math.round(5 + (lvl - 1) * (10 / 9));
+
+        // --- 主元件 ---
+        function App() {
+          const [level, setLevel] = useState(1);
+          const [puzzleId, setPuzzleId] = useState(1);
+          
+          const [board, setBoard] = useState([]);
+          const [solution, setSolution] = useState([]);
+          const [selectedCell, setSelectedCell] = useState(null);
+          const [isNotesMode, setIsNotesMode] = useState(false);
+          
+          const [history, setHistory] = useState([]);
+          const [timer, setTimer] = useState(0);
+          const [isPlaying, setIsPlaying] = useState(false);
+          const [isSolved, setIsSolved] = useState(false);
+          const [isLoading, setIsLoading] = useState(true);
+          
+          const [showRecords, setShowRecords] = useState(false);
+          const [sessionTime, setSessionTime] = useState(0); 
+          const [showRestReminder, setShowRestReminder] = useState(false);
+          const [hintsRemaining, setHintsRemaining] = useState(5);
+
+          useEffect(() => {
+            const savedState = loadCurrentState();
+            setLevel(savedState.level || 1);
+            setPuzzleId(savedState.puzzleId || 1);
+          }, []);
+
+          const initGame = useCallback((l, p) => {
+            setIsLoading(true);
+            setIsPlaying(false);
+            saveCurrentState(l, p);
+            setHintsRemaining(calculateHintsForLevel(l));
+
+            setTimeout(() => {
+              const { puzzle, solution: sol } = generateSudoku(l, p);
+              const newBoard = puzzle.map((row) => 
+                row.map((val) => ({
+                  value: val,
+                  isGiven: val !== BLANK,
+                  notes: new Set(),
+                  error: false
+                }))
+              );
+              setBoard(newBoard);
+              setSolution(sol);
+              setHistory([]);
+              setTimer(0);
+              setIsSolved(false);
+              setSelectedCell(null);
+              setIsPlaying(true);
+              setIsLoading(false);
+            }, 50);
+          }, []);
+
+          useEffect(() => {
+            if (level && puzzleId) { initGame(level, puzzleId); }
+          }, [level, puzzleId, initGame]);
+
+          useEffect(() => {
+            let interval;
+            if (isPlaying && !isSolved && !isLoading) {
+              interval = setInterval(() => {
+                setTimer((t) => t + 1);
+                setSessionTime((st) => {
+                  const newTime = st + 1;
+                  if (newTime === 900) {
+                    setShowRestReminder(true);
+                    setIsPlaying(false);
+                  }
+                  return newTime;
+                });
+              }, 1000);
+            }
+            return () => clearInterval(interval);
+          }, [isPlaying, isSolved, isLoading]);
+
+          const formatTime = (seconds) => {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+          };
+
+          const handleNextLevel = () => {
+            if (puzzleId < 20) {
+              setPuzzleId(p => p + 1);
+            } else if (level < 10) {
+              setLevel(l => l + 1);
+              setPuzzleId(1);
+            } else {
+              setPuzzleId(1);
+            }
+          };
+
+          const checkWinCondition = (currentBoard) => {
+            for (let r = 0; r < 9; r++) {
+              for (let c = 0; c < 9; c++) {
+                if (currentBoard[r][c].value !== solution[r][c]) return false;
+              }
+            }
+            return true;
+          };
+
+          const updateErrors = (currentBoard) => {
+            const newBoard = currentBoard.map(row => row.map(cell => ({ ...cell, error: false })));
+            for (let r = 0; r < 9; r++) {
+              for (let c = 0; c < 9; c++) {
+                const val = newBoard[r][c].value;
+                if (val === BLANK) continue;
+                let isErr = false;
+                for (let i = 0; i < 9; i++) {
+                  if (i !== c && newBoard[r][i].value === val) isErr = true;
+                  if (i !== r && newBoard[i][c].value === val) isErr = true;
+                }
+                const boxR = Math.floor(r / 3) * 3;
+                const boxC = Math.floor(c / 3) * 3;
+                for (let i = 0; i < 3; i++) {
+                  for (let j = 0; j < 3; j++) {
+                    const rr = boxR + i;
+                    const cc = boxC + j;
+                    if ((rr !== r || cc !== c) && newBoard[rr][cc].value === val) isErr = true;
+                  }
+                }
+                if (isErr) newBoard[r][c].error = true;
+              }
+            }
+            return newBoard;
+          };
+
+          const clearRelatedNotes = (currentBoard, r, c, val) => {
+            const newBoard = currentBoard.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
+            for (let i = 0; i < 9; i++) {
+              newBoard[r][i].notes.delete(val);
+              newBoard[i][c].notes.delete(val);
+            }
+            const boxR = Math.floor(r / 3) * 3;
+            const boxC = Math.floor(c / 3) * 3;
+            for (let i = 0; i < 3; i++) {
+              for (let j = 0; j < 3; j++) {
+                newBoard[boxR + i][boxC + j].notes.delete(val);
+              }
+            }
+            return newBoard;
+          };
+
+          const handleInput = useCallback((num) => {
+            if (!selectedCell || isSolved || !isPlaying) return;
+            const [r, c] = selectedCell;
+            if (board[r][c].isGiven) return;
+
+            setHistory(prev => [...prev, board.map(row => row.map(cell => ({...cell, notes: new Set(cell.notes)})))]);
+            let newBoard = board.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
+
+            if (num === BLANK) {
+              newBoard[r][c].value = BLANK;
+              newBoard[r][c].error = false;
+            } else if (isNotesMode) {
+              if (newBoard[r][c].value === BLANK) {
+                if (newBoard[r][c].notes.has(num)) newBoard[r][c].notes.delete(num);
+                else newBoard[r][c].notes.add(num);
+              }
+            } else {
+              if (newBoard[r][c].value === num) {
+                newBoard[r][c].value = BLANK; 
+              } else {
+                newBoard[r][c].value = num;
+                newBoard = clearRelatedNotes(newBoard, r, c, num);
+              }
+            }
+
+            newBoard = updateErrors(newBoard);
+            setBoard(newBoard);
+
+            if (checkWinCondition(newBoard)) {
+              setIsSolved(true);
+              setIsPlaying(false);
+              saveRecord(level, puzzleId, timer);
+            }
+          }, [board, selectedCell, isNotesMode, isSolved, isPlaying, solution, level, puzzleId, timer]);
+
+          const useHint = useCallback(() => {
+            if (!selectedCell || isSolved || !isPlaying || hintsRemaining <= 0) return;
+            const [r, c] = selectedCell;
+            if (board[r][c].isGiven || board[r][c].value === solution[r][c]) return;
+
+            const correctValue = solution[r][c];
+            setHistory(prev => [...prev, board.map(row => row.map(cell => ({...cell, notes: new Set(cell.notes)})))]);
+            
+            let newBoard = board.map(row => row.map(cell => ({ ...cell, notes: new Set(cell.notes) })));
+            newBoard[r][c].value = correctValue;
+            newBoard = clearRelatedNotes(newBoard, r, c, correctValue);
+            newBoard = updateErrors(newBoard);
+            
+            setBoard(newBoard);
+            setHintsRemaining(prev => prev - 1);
+
+            if (checkWinCondition(newBoard)) {
+              setIsSolved(true);
+              setIsPlaying(false);
+              saveRecord(level, puzzleId, timer);
+            }
+          }, [board, selectedCell, isSolved, isPlaying, hintsRemaining, solution, level, puzzleId, timer]);
+
+          const undo = () => {
+            if (history.length === 0 || isSolved || !isPlaying) return;
+            const previousBoard = history[history.length - 1];
+            setBoard(previousBoard);
+            setHistory(prev => prev.slice(0, -1));
+          };
+
+          const isPeer = (r, c) => {
+            if (!selectedCell) return false;
+            const [sr, sc] = selectedCell;
+            return r === sr || c === sc || (Math.floor(r / 3) === Math.floor(sr / 3) && Math.floor(c / 3) === Math.floor(sc / 3));
+          };
+
+          const isSameNumber = (r, c) => {
+            if (!selectedCell) return false;
+            const [sr, sc] = selectedCell;
+            const selVal = board[sr][sc].value;
+            return selVal !== BLANK && board[r][c].value === selVal;
+          };
+
+          const dismissReminder = () => {
+            setShowRestReminder(false);
+            setSessionTime(0); 
+            setIsPlaying(true); 
+          };
+
+          return (
+            <div className="flex flex-col items-center">
+              <div className="w-full max-w-[420px] mb-3 mt-4">
+                <div className="flex justify-between items-center mb-3 px-1">
+                  <div>
+                    <h1 className="text-2xl font-black text-[#2f4f2f] tracking-tight flex items-center gap-2">
+                      <i className="fa-solid fa-tree text-[#4caf50] text-2xl"></i>
+                      森林數獨
+                    </h1>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`text-xl font-mono font-bold ${!isPlaying ? 'text-[#8fa38f]' : 'text-[#3e5f3e]'}`}>
+                      {formatTime(timer)}
+                    </div>
+                    <button 
+                      onClick={() => setShowRecords(true)}
+                      className="w-10 h-10 flex items-center justify-center bg-[#d4ebd8] text-[#3e5f3e] rounded-full hover:bg-[#c2e2c9] transition shadow-sm border border-[#b8deb3]"
+                    >
+                      <i className="fa-solid fa-trophy text-lg"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-[#f0f7f1] p-2.5 rounded-2xl shadow-sm border border-[#cce8d1] flex justify-between items-center">
+                  <select 
+                    className="bg-transparent border-none text-[#2f4f2f] text-sm sm:text-base font-bold focus:ring-0 cursor-pointer p-1 outline-none max-w-[160px] truncate"
+                    value={level}
+                    onChange={(e) => setLevel(Number(e.target.value))}
+                  >
+                    {FOREST_LEVELS.map((name, i) => (
+                      <option key={i+1} value={i+1}>Lv{i+1} {name}</option>
+                    ))}
+                  </select>
+
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <span className="text-xs font-bold text-[#8fa38f] hidden sm:flex items-center gap-1">
+                      <i className="fa-solid fa-hashtag text-xs"></i>
+                    </span>
+                    <div className="flex items-center bg-[#e0f0e3] rounded-xl overflow-hidden p-0.5 border border-[#d1e8d5]">
+                      <button onClick={() => setPuzzleId(p => Math.max(1, p - 1))} className="p-2 active:bg-[#cce8d1] rounded-lg text-[#3e5f3e]">
+                        <i className="fa-solid fa-chevron-left text-sm"></i>
+                      </button>
+                      <span className="w-8 text-center font-bold text-sm text-[#2f4f2f]">{puzzleId}</span>
+                      <button onClick={() => setPuzzleId(p => Math.min(20, p + 1))} className="p-2 active:bg-[#cce8d1] rounded-lg text-[#3e5f3e]">
+                        <i className="fa-solid fa-chevron-right text-sm"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full max-w-[420px] relative flex flex-col">
+                
+                {isLoading && (
+                  <div className="absolute inset-0 bg-[#e6f4ea]/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-3xl">
+                    <i className="fa-solid fa-leaf text-[#4caf50] animate-bounce mb-3 text-3xl"></i>
+                    <p className="text-[#3e5f3e] font-bold text-sm">正在森林深處尋找謎題.
