@@ -16,8 +16,8 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- 引入 Fireworks-js 真實煙花特效庫 -->
-    <script src="https://unpkg.com/fireworks-js@2.x/dist/index.umd.js"></script>
+    <!-- 引入極致穩定的 Canvas Confetti (重新調配作真實煙花) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
         /* 鎖定背景不被拉動，消除原生瀏覽器滾動回彈 */
@@ -40,7 +40,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useRef } = React;
+        const { useState, useEffect, useCallback } = React;
 
         // --- 偽亂數產生器 ---
         function mulberry32(a) {
@@ -51,6 +51,35 @@
             return ((t ^ t >>> 14) >>> 0) / 4294967296;
           }
         }
+
+        // --- 觸發誇張版真實煙花特效的函數 (穩定支援 iPhone) ---
+        const triggerFireworks = () => {
+            const duration = 4000; // 煙花持續 4 秒
+            const animationEnd = Date.now() + duration;
+            // zIndex: 999999 確保在所有彈出視窗之上
+            const defaults = { startVelocity: 35, spread: 360, ticks: 80, zIndex: 999999 }; 
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            const interval = setInterval(function() {
+              const timeLeft = animationEnd - Date.now();
+
+              if (timeLeft <= 0) {
+                return clearInterval(interval);
+              }
+
+              const particleCount = 60 * (timeLeft / duration);
+              
+              // 模擬真實煙花：在空中隨機位置連續爆發
+              window.confetti(Object.assign({}, defaults, { 
+                particleCount,
+                origin: { x: randomInRange(0.1, 0.9), y: Math.random() - 0.2 },
+                colors: ['#ff0000', '#ffd700', '#00ff00', '#00ffff', '#ff00ff', '#ffffff'] // 絢麗七彩顏色
+              }));
+            }, 200); // 每 0.2 秒引爆一發
+        };
 
         // --- 數獨核心邏輯與生成器 ---
         const BLANK = 0;
@@ -265,8 +294,6 @@
           const [sessionTime, setSessionTime] = useState(0); 
           const [showRestReminder, setShowRestReminder] = useState(false);
           const [hintsRemaining, setHintsRemaining] = useState(5);
-          
-          const fwRef = useRef(null); // 綁定煙花畫布用
 
           useEffect(() => {
             const savedState = loadCurrentState();
@@ -429,6 +456,7 @@
               setIsSolved(true);
               setIsPlaying(false);
               saveRecord(level, puzzleId, timer);
+              triggerFireworks(); // 觸發安全、誇張的煙花
             }
           }, [board, selectedCell, isNotesMode, isSolved, isPlaying, solution, level, puzzleId, timer]);
 
@@ -452,6 +480,7 @@
               setIsSolved(true);
               setIsPlaying(false);
               saveRecord(level, puzzleId, timer);
+              triggerFireworks(); // 觸發安全、誇張的煙花
             }
           }, [board, selectedCell, isSolved, isPlaying, hintsRemaining, solution, level, puzzleId, timer]);
 
@@ -481,39 +510,6 @@
             setIsPlaying(true); 
           };
 
-          // --- 真實誇張煙花特效控制 ---
-          useEffect(() => {
-              let fireworks = null;
-              if (isSolved && fwRef.current) {
-                  fireworks = new window.Fireworks(fwRef.current, {
-                      autoresize: true,
-                      opacity: 0.8,
-                      acceleration: 1.05,
-                      friction: 0.96,
-                      gravity: 1.5,
-                      particles: 200, // 誇張的大量粒子
-                      traceLength: 4, // 煙花升空的長拖尾
-                      traceSpeed: 10,
-                      explosion: 10, // 巨大的爆炸範圍
-                      intensity: 45, // 發射得更加密集
-                      flickering: 50,
-                      lineStyle: 'round',
-                      hue: { min: 0, max: 360 }, // 七彩絢麗顏色
-                      delay: { min: 10, max: 25 },
-                      rocketsPoint: { min: 30, max: 70 },
-                      lineWidth: { explosion: { min: 1, max: 4 }, trace: { min: 1, max: 2 } },
-                      brightness: { min: 50, max: 100 },
-                      decay: { min: 0.015, max: 0.03 }
-                  });
-                  fireworks.start();
-              }
-              return () => {
-                  if (fireworks) {
-                      fireworks.stop();
-                  }
-              };
-          }, [isSolved]);
-
           return (
             // 最外層鎖定 100dvh，真正填滿整個畫面，防止原生滾動條出現
             <div className="h-[100dvh] w-full flex justify-center bg-[#e6f4ea] overflow-hidden relative">
@@ -528,12 +524,7 @@
 
               {isSolved && (
                 <div className="absolute inset-0 bg-[#1a2f1a]/95 backdrop-blur-md z-40 flex flex-col items-center justify-center text-[#f0f7f1] overflow-hidden">
-                  
-                  {/* 煙花畫布層 (絕對定位，放喺底層) */}
-                  <div ref={fwRef} className="absolute inset-0 pointer-events-none z-0 w-full h-full"></div>
-                  
-                  {/* 內容層 (提高 z-index 確保字同按鈕唔會被煙花遮住) */}
-                  <div className="relative z-10 flex flex-col items-center">
+                  <div className="relative z-50 flex flex-col items-center">
                       <div className="relative mb-4">
                           <i className="fa-solid fa-crown text-[#ffeb3b] animate-[bounce_2s_infinite] text-7xl drop-shadow-[0_0_15px_rgba(255,235,59,0.6)]"></i>
                           <i className="fa-solid fa-star text-[#ff9800] absolute top-0 -right-4 animate-ping text-xl"></i>
@@ -561,7 +552,7 @@
                 </div>
               )}
 
-              {/* 遊戲主體佈局：改為充滿 100dvh 的 Flex Column */}
+              {/* 遊戲主體佈局：充滿 100dvh 的 Flex Column */}
               <div className="w-full h-full max-w-[420px] flex flex-col p-2 sm:p-3 pb-4">
                 
                 {/* 頂部區域 (不縮放，固定高度) */}
@@ -617,7 +608,6 @@
 
                 {/* 棋盤區域 (佔據剩餘空間，保證正方形且絕不超出畫面) */}
                 <div className="flex-1 min-h-0 w-full flex items-center justify-center relative py-1">
-                  {/* 使用 css min() 精確計算，扣除上下介面大約 300px 的高度，確保棋盤完美撐滿但不會互相擠壓 */}
                   <div 
                     className="bg-[#8b7355] p-1.5 rounded-2xl shadow-lg relative select-none touch-none w-full aspect-square mx-auto"
                     style={{ maxWidth: 'min(100%, calc(100dvh - 300px))' }}
