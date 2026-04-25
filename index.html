@@ -5,20 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>森林護眼數獨</title>
     
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- 引入 FontAwesome 圖示 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- 引入 React 及 Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- 引入 Canvas Confetti 煙花特效庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
     <style>
-        body { -webkit-tap-highlight-color: transparent; }
+        /* 鎖定背景不被拉動，消除原生瀏覽器滾動回彈 */
+        body { 
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden; 
+            overscroll-behavior: none;
+        }
         .touch-manipulation { touch-action: manipulation; }
+        /* 隱藏 select 的預設箭頭，讓外觀更簡潔乾淨 */
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
     </style>
 </head>
-<body class="bg-[#e6f4ea] text-[#4a554a] font-sans selection:bg-[#c2e2c9] overscroll-none">
+<body class="bg-[#e6f4ea] text-[#4a554a] font-sans selection:bg-[#c2e2c9]">
     
     <div id="root"></div>
 
@@ -34,6 +51,36 @@
             return ((t ^ t >>> 14) >>> 0) / 4294967296;
           }
         }
+
+        // --- 觸發可愛煙花特效的函數 ---
+        const triggerFireworks = () => {
+            const duration = 2.5 * 1000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            const interval = setInterval(function() {
+              const timeLeft = animationEnd - Date.now();
+              if (timeLeft <= 0) return clearInterval(interval);
+
+              const particleCount = 40 * (timeLeft / duration);
+              const cuteColors = ['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff8b94', '#fff9c4'];
+
+              window.confetti(Object.assign({}, defaults, { 
+                particleCount,
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+                colors: cuteColors
+              }));
+              window.confetti(Object.assign({}, defaults, { 
+                particleCount,
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+                colors: cuteColors
+              }));
+            }, 250);
+        };
 
         // --- 數獨核心邏輯與生成器 ---
         const BLANK = 0;
@@ -321,6 +368,12 @@
             }
           };
 
+          const handleLevelChange = (e) => {
+             const newLevel = Number(e.target.value);
+             setLevel(newLevel);
+             setPuzzleId(1);
+          };
+
           const checkWinCondition = (currentBoard) => {
             for (let r = 0; r < 9; r++) {
               for (let c = 0; c < 9; c++) {
@@ -404,6 +457,7 @@
               setIsSolved(true);
               setIsPlaying(false);
               saveRecord(level, puzzleId, timer);
+              triggerFireworks();
             }
           }, [board, selectedCell, isNotesMode, isSolved, isPlaying, solution, level, puzzleId, timer]);
 
@@ -427,6 +481,7 @@
               setIsSolved(true);
               setIsPlaying(false);
               saveRecord(level, puzzleId, timer);
+              triggerFireworks();
             }
           }, [board, selectedCell, isSolved, isPlaying, hintsRemaining, solution, level, puzzleId, timer]);
 
@@ -457,180 +512,199 @@
           };
 
           return (
-            <div className="flex flex-col items-center">
-              <div className="w-full max-w-[420px] mb-3 mt-4">
-                <div className="flex justify-between items-center mb-3 px-1">
-                  <div>
-                    <h1 className="text-2xl font-black text-[#2f4f2f] tracking-tight flex items-center gap-2">
-                      <i className="fa-solid fa-tree text-[#4caf50] text-2xl"></i>
-                      森林數獨
-                    </h1>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className={`text-xl font-mono font-bold ${!isPlaying ? 'text-[#8fa38f]' : 'text-[#3e5f3e]'}`}>
-                      {formatTime(timer)}
-                    </div>
-                    <button 
-                      onClick={() => setShowRecords(true)}
-                      className="w-10 h-10 flex items-center justify-center bg-[#d4ebd8] text-[#3e5f3e] rounded-full hover:bg-[#c2e2c9] transition shadow-sm border border-[#b8deb3]"
-                    >
-                      <i className="fa-solid fa-trophy text-lg"></i>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-[#f0f7f1] p-2.5 rounded-2xl shadow-sm border border-[#cce8d1] flex justify-between items-center">
-                  <select 
-                    className="bg-transparent border-none text-[#2f4f2f] text-sm sm:text-base font-bold focus:ring-0 cursor-pointer p-1 outline-none max-w-[160px] truncate"
-                    value={level}
-                    onChange={(e) => setLevel(Number(e.target.value))}
-                  >
-                    {FOREST_LEVELS.map((name, i) => (
-                      <option key={i+1} value={i+1}>Lv{i+1} {name}</option>
-                    ))}
-                  </select>
-
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <span className="text-xs font-bold text-[#8fa38f] hidden sm:flex items-center gap-1">
-                      <i className="fa-solid fa-hashtag text-xs"></i>
-                    </span>
-                    <div className="flex items-center bg-[#e0f0e3] rounded-xl overflow-hidden p-0.5 border border-[#d1e8d5]">
-                      <button onClick={() => setPuzzleId(p => Math.max(1, p - 1))} className="p-2 active:bg-[#cce8d1] rounded-lg text-[#3e5f3e]">
-                        <i className="fa-solid fa-chevron-left text-sm"></i>
-                      </button>
-                      <span className="w-8 text-center font-bold text-sm text-[#2f4f2f]">{puzzleId}</span>
-                      <button onClick={() => setPuzzleId(p => Math.min(20, p + 1))} className="p-2 active:bg-[#cce8d1] rounded-lg text-[#3e5f3e]">
-                        <i className="fa-solid fa-chevron-right text-sm"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-full max-w-[420px] relative flex flex-col">
-                
-                {isLoading && (
-                  <div className="absolute inset-0 bg-[#e6f4ea]/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-3xl">
+            // 最外層鎖定 100dvh，真正填滿整個畫面，防止原生滾動條出現
+            <div className="h-[100dvh] w-full flex justify-center bg-[#e6f4ea] overflow-hidden relative">
+              
+              {/* 各種彈出視窗 (Overlays) */}
+              {isLoading && (
+                  <div className="absolute inset-0 bg-[#e6f4ea]/95 backdrop-blur-sm z-40 flex flex-col items-center justify-center">
                     <i className="fa-solid fa-leaf text-[#4caf50] animate-bounce mb-3 text-3xl"></i>
                     <p className="text-[#3e5f3e] font-bold text-sm">正在森林深處尋找謎題...</p>
                   </div>
-                )}
+              )}
 
-                {isSolved && (
-                  <div className="absolute inset-0 bg-[#2f4f2f]/95 backdrop-blur-md z-20 flex flex-col items-center justify-center rounded-3xl shadow-2xl text-[#f0f7f1]">
-                    <i className="fa-solid fa-dove text-[#a5d6a7] mb-6 animate-[bounce_2s_infinite] text-6xl"></i>
-                    <h2 className="text-3xl font-black mb-1">順利通關！</h2>
-                    <p className="text-[#cce8d1] mb-8 font-mono text-lg font-bold">探索時間 {formatTime(timer)}</p>
-                    <button onClick={handleNextLevel} className="px-8 py-4 bg-[#e6f4ea] text-[#1b301b] font-black rounded-full active:scale-95 transition shadow-[0_4px_0_0_rgba(76,175,80,0.4)] flex items-center gap-2">
-                      前往下一區 <i className="fa-solid fa-chevron-right text-sm"></i>
-                    </button>
+              {isSolved && (
+                <div className="absolute inset-0 bg-[#2f4f2f]/95 backdrop-blur-md z-40 flex flex-col items-center justify-center text-[#f0f7f1]">
+                  <div className="relative mb-4">
+                      <i className="fa-solid fa-crown text-[#ffeb3b] animate-[bounce_2s_infinite] text-7xl drop-shadow-lg"></i>
+                      <i className="fa-solid fa-star text-[#ff9800] absolute top-0 -right-4 animate-ping text-xl"></i>
+                      <i className="fa-solid fa-star text-[#ffcc80] absolute bottom-2 -left-4 animate-ping text-2xl" style={{animationDelay: '0.5s'}}></i>
                   </div>
-                )}
+                  <h2 className="text-3xl font-black mb-2 text-[#a5d6a7]">太厲害了！恭喜通關！</h2>
+                  <p className="text-[#cce8d1] mb-8 font-mono text-lg font-bold">本次探索時間 {formatTime(timer)}</p>
+                  <button onClick={handleNextLevel} className="px-8 py-4 bg-[#e6f4ea] text-[#1b301b] font-black rounded-full active:scale-95 transition shadow-[0_4px_0_0_rgba(76,175,80,0.4)] flex items-center gap-2 text-lg">
+                    前往下一關卡 <i className="fa-solid fa-chevron-right text-sm"></i>
+                  </button>
+                </div>
+              )}
 
-                {showRestReminder && (
-                  <div className="absolute inset-0 bg-[#e6f4ea]/95 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-3xl shadow-xl text-[#2f4f2f] border-4 border-[#cce8d1] animate-in zoom-in-95 duration-300">
-                    <i className="fa-solid fa-mug-hot text-[#8d6e63] mb-6 text-6xl"></i>
-                    <h2 className="text-2xl font-black mb-2 text-[#4e342e]">眼睛需要休息囉！</h2>
-                    <p className="text-[#6d4c41] mb-6 font-bold text-center px-6 leading-relaxed">
-                      您已經探索森林 15 分鐘了。<br/>喝杯水，看看遠方的綠色植物吧！
-                    </p>
-                    <button onClick={dismissReminder} className="px-8 py-3 bg-[#8d6e63] text-[#f5f5dc] font-black rounded-full active:scale-95 transition shadow-[0_4px_0_0_rgba(109,76,65,0.4)]">
-                      我休息好了，繼續遊戲
-                    </button>
+              {showRestReminder && (
+                <div className="absolute inset-0 bg-[#e6f4ea]/95 backdrop-blur-md z-40 flex flex-col items-center justify-center text-[#2f4f2f] animate-in zoom-in-95 duration-300">
+                  <i className="fa-solid fa-mug-hot text-[#8d6e63] mb-6 text-6xl"></i>
+                  <h2 className="text-2xl font-black mb-2 text-[#4e342e]">眼睛需要休息囉！</h2>
+                  <p className="text-[#6d4c41] mb-6 font-bold text-center px-6 leading-relaxed">
+                    您已經探索森林 15 分鐘了。<br/>喝杯水，看看遠方的綠色植物吧！
+                  </p>
+                  <button onClick={dismissReminder} className="px-8 py-3 bg-[#8d6e63] text-[#f5f5dc] font-black rounded-full active:scale-95 transition shadow-[0_4px_0_0_rgba(109,76,65,0.4)]">
+                    我休息好了，繼續遊戲
+                  </button>
+                </div>
+              )}
+
+              {/* 遊戲主體佈局：改為充滿 100dvh 的 Flex Column */}
+              <div className="w-full h-full max-w-[420px] flex flex-col p-2 sm:p-3 pb-4">
+                
+                {/* 頂部區域 (不縮放，固定高度) */}
+                <div className="flex-none flex flex-col gap-2 pt-1 mb-2">
+                  <div className="flex justify-between items-center px-1">
+                    <div>
+                      <h1 className="text-2xl font-black text-[#2f4f2f] tracking-tight flex items-center gap-2">
+                        <i className="fa-solid fa-tree text-[#4caf50]"></i>
+                        森林數獨
+                      </h1>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className={`text-xl font-mono font-bold ${!isPlaying ? 'text-[#8fa38f]' : 'text-[#3e5f3e]'}`}>
+                        {formatTime(timer)}
+                      </div>
+                      <button 
+                        onClick={() => setShowRecords(true)}
+                        className="w-9 h-9 flex items-center justify-center bg-[#d4ebd8] text-[#3e5f3e] rounded-full hover:bg-[#c2e2c9] transition shadow-sm border border-[#b8deb3]"
+                      >
+                        <i className="fa-solid fa-trophy"></i>
+                      </button>
+                    </div>
                   </div>
-                )}
 
-                <div className="bg-[#8b7355] p-2 rounded-2xl shadow-lg aspect-square w-full select-none touch-none mb-4">
-                  <div className="grid grid-cols-9 grid-rows-9 h-full w-full bg-[#d2b48c] gap-px border-2 border-[#8b7355] rounded-lg overflow-hidden">
-                    {board.map((row, r) => 
-                      row.map((cell, c) => {
-                        const isSelected = selectedCell?.[0] === r && selectedCell?.[1] === c;
-                        const isRelated = !isSelected && isPeer(r, c);
-                        const isSame = !isSelected && isSameNumber(r, c);
-                        
-                        let borderClasses = "";
-                        if (c % 3 === 2 && c !== 8) borderClasses += " border-r-2 border-r-[#8b7355]";
-                        if (r % 3 === 2 && r !== 8) borderClasses += " border-b-2 border-b-[#8b7355]";
+                  <div className="bg-[#f0f7f1] p-2 rounded-2xl shadow-sm border border-[#cce8d1] flex justify-between items-center gap-2">
+                    <div className="relative flex-1 bg-[#e0f0e3] rounded-xl border border-[#d1e8d5] overflow-hidden">
+                      <select 
+                        className="w-full bg-transparent border-none text-[#2f4f2f] text-sm font-bold cursor-pointer p-2 pl-3 pr-8 outline-none"
+                        value={level}
+                        onChange={handleLevelChange}
+                      >
+                        {FOREST_LEVELS.map((name, i) => (
+                          <option key={i+1} value={i+1}>Lv{i+1} {name}</option>
+                        ))}
+                      </select>
+                      <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-[#8fa38f] pointer-events-none text-xs"></i>
+                    </div>
 
-                        let bgClass = "bg-[#f5f5dc]";
-                        if (isSelected) bgClass = "bg-[#a3d3a7]"; 
-                        else if (isSame) bgClass = "bg-[#cce8d1]";
-                        else if (isRelated) bgClass = "bg-[#e8e4c9]";
-                        
-                        if (cell.error && !isSelected) bgClass = "bg-[#ffcccb]"; 
-                        if (cell.error && isSelected) bgClass = "bg-[#ffb6b5]";
-
-                        let textClass = "text-[#5c4033]"; 
-                        if (cell.isGiven) textClass = "text-[#3e2723] font-black"; 
-                        else if (cell.error) textClass = "text-[#d32f2f] font-black";
-                        else textClass = "text-[#1b5e20] font-bold";
-
-                        return (
-                          <div 
-                            key={`${r}-${c}`}
-                            className={`relative flex items-center justify-center cursor-pointer text-xl sm:text-2xl lg:text-3xl transition-colors duration-100 ${bgClass} ${borderClasses}`}
-                            onClick={() => setSelectedCell([r, c])}
-                          >
-                            {cell.value !== BLANK ? (
-                              <span className={textClass}>{cell.value}</span>
-                            ) : (
-                              <div className="absolute inset-0.5 grid grid-cols-3 grid-rows-3 text-[0.5rem] sm:text-[0.6rem] leading-none text-[#8d6e63] font-bold">
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
-                                  <div key={n} className="flex items-center justify-center">
-                                    {cell.notes.has(n) ? n : ''}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
+                    <div className="relative w-[100px] bg-[#e0f0e3] rounded-xl border border-[#d1e8d5] overflow-hidden flex-shrink-0">
+                      <select 
+                        className="w-full bg-transparent border-none text-[#2f4f2f] text-sm font-bold cursor-pointer p-2 pl-3 pr-8 outline-none"
+                        value={puzzleId}
+                        onChange={(e) => setPuzzleId(Number(e.target.value))}
+                      >
+                        {[...Array(20)].map((_, i) => (
+                          <option key={i+1} value={i+1}>第 {i+1} 關</option>
+                        ))}
+                      </select>
+                      <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-[#8fa38f] pointer-events-none text-xs"></i>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3">
+                {/* 棋盤區域 (佔據剩餘空間，保證正方形且絕不超出畫面) */}
+                <div className="flex-1 min-h-0 w-full flex items-center justify-center relative py-1">
+                  {/* 使用 css min() 精確計算，扣除上下介面大約 300px 的高度，確保棋盤完美撐滿但不會互相擠壓 */}
+                  <div 
+                    className="bg-[#8b7355] p-1.5 rounded-2xl shadow-lg relative select-none touch-none w-full aspect-square mx-auto"
+                    style={{ maxWidth: 'min(100%, calc(100dvh - 300px))' }}
+                  >
+                    <div className="grid grid-cols-9 grid-rows-9 h-full w-full bg-[#d2b48c] gap-px border-2 border-[#8b7355] rounded-lg overflow-hidden">
+                      {board.map((row, r) => 
+                        row.map((cell, c) => {
+                          const isSelected = selectedCell?.[0] === r && selectedCell?.[1] === c;
+                          const isRelated = !isSelected && isPeer(r, c);
+                          const isSame = !isSelected && isSameNumber(r, c);
+                          
+                          let borderClasses = "";
+                          if (c % 3 === 2 && c !== 8) borderClasses += " border-r-2 border-r-[#8b7355]";
+                          if (r % 3 === 2 && r !== 8) borderClasses += " border-b-2 border-b-[#8b7355]";
+
+                          let bgClass = "bg-[#f5f5dc]";
+                          if (isSelected) bgClass = "bg-[#a3d3a7]"; 
+                          else if (isSame) bgClass = "bg-[#cce8d1]";
+                          else if (isRelated) bgClass = "bg-[#e8e4c9]";
+                          
+                          if (cell.error && !isSelected) bgClass = "bg-[#ffcccb]"; 
+                          if (cell.error && isSelected) bgClass = "bg-[#ffb6b5]";
+
+                          let textClass = "text-[#5c4033]"; 
+                          if (cell.isGiven) textClass = "text-[#3e2723] font-black"; 
+                          else if (cell.error) textClass = "text-[#d32f2f] font-black";
+                          else textClass = "text-[#1b5e20] font-bold";
+
+                          return (
+                            <div 
+                              key={`${r}-${c}`}
+                              className={`relative flex items-center justify-center cursor-pointer text-xl sm:text-2xl lg:text-3xl transition-colors duration-100 ${bgClass} ${borderClasses}`}
+                              onClick={() => setSelectedCell([r, c])}
+                            >
+                              {cell.value !== BLANK ? (
+                                <span className={textClass}>{cell.value}</span>
+                              ) : (
+                                <div className="absolute inset-0.5 grid grid-cols-3 grid-rows-3 text-[0.5rem] sm:text-[0.6rem] leading-none text-[#8d6e63] font-bold">
+                                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
+                                    <div key={n} className="flex items-center justify-center">
+                                      {cell.notes.has(n) ? n : ''}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 底部控制區域 (不縮放，固定高度) */}
+                <div className="flex-none flex flex-col gap-2 mt-2">
                   <div className="grid grid-cols-4 gap-2">
-                    <button onClick={undo} disabled={history.length === 0 || !isPlaying} className={`py-3 rounded-2xl flex flex-col justify-center items-center gap-1 font-bold text-xs transition-colors border ${history.length > 0 && isPlaying ? 'bg-[#f0f7f1] border-[#cce8d1] text-[#3e5f3e] active:bg-[#e0f0e3]' : 'bg-[#e0f0e3]/50 border-transparent text-[#a0b5a0]'}`}>
-                      <i className="fa-solid fa-rotate-left text-lg"></i> 復原
+                    <button onClick={undo} disabled={history.length === 0 || !isPlaying} className={`py-2 rounded-2xl flex flex-col justify-center items-center gap-1 font-bold text-[11px] transition-colors border ${history.length > 0 && isPlaying ? 'bg-[#f0f7f1] border-[#cce8d1] text-[#3e5f3e] active:bg-[#e0f0e3]' : 'bg-[#e0f0e3]/50 border-transparent text-[#a0b5a0]'}`}>
+                      <i className="fa-solid fa-rotate-left text-base"></i> 復原
                     </button>
                     
-                    <button onClick={() => handleInput(BLANK)} disabled={!isPlaying} className={`py-3 rounded-2xl flex flex-col justify-center items-center gap-1 font-bold text-xs transition-colors border ${isPlaying ? 'bg-[#f0f7f1] border-[#cce8d1] text-[#3e5f3e] active:bg-[#e0f0e3]' : 'bg-[#e0f0e3]/50 border-transparent text-[#a0b5a0]'}`}>
-                      <i className="fa-solid fa-eraser text-lg"></i> 擦除
+                    <button onClick={() => handleInput(BLANK)} disabled={!isPlaying} className={`py-2 rounded-2xl flex flex-col justify-center items-center gap-1 font-bold text-[11px] transition-colors border ${isPlaying ? 'bg-[#f0f7f1] border-[#cce8d1] text-[#3e5f3e] active:bg-[#e0f0e3]' : 'bg-[#e0f0e3]/50 border-transparent text-[#a0b5a0]'}`}>
+                      <i className="fa-solid fa-eraser text-base"></i> 擦除
                     </button>
 
-                    <button onClick={() => setIsNotesMode(!isNotesMode)} disabled={!isPlaying} className={`py-3 rounded-2xl flex flex-col justify-center items-center gap-1 font-bold text-xs transition-colors border ${!isPlaying ? 'bg-[#e0f0e3]/50 border-transparent text-[#a0b5a0]' : isNotesMode ? 'bg-[#4caf50] border-[#388e3c] text-[#f0f7f1] shadow-md' : 'bg-[#f0f7f1] border-[#cce8d1] text-[#3e5f3e] active:bg-[#e0f0e3]'}`}>
-                      <i className="fa-solid fa-pen text-lg"></i> 筆記
+                    <button onClick={() => setIsNotesMode(!isNotesMode)} disabled={!isPlaying} className={`py-2 rounded-2xl flex flex-col justify-center items-center gap-1 font-bold text-[11px] transition-colors border ${!isPlaying ? 'bg-[#e0f0e3]/50 border-transparent text-[#a0b5a0]' : isNotesMode ? 'bg-[#4caf50] border-[#388e3c] text-[#f0f7f1] shadow-md' : 'bg-[#f0f7f1] border-[#cce8d1] text-[#3e5f3e] active:bg-[#e0f0e3]'}`}>
+                      <i className="fa-solid fa-pen text-base"></i> 筆記
                     </button>
 
-                    <button onClick={useHint} disabled={!isPlaying || hintsRemaining <= 0 || !selectedCell || board[selectedCell[0]][selectedCell[1]].isGiven} className={`py-3 rounded-2xl flex flex-col justify-center items-center gap-1 font-bold text-xs transition-colors border relative ${(!isPlaying || hintsRemaining <= 0) ? 'bg-[#e0f0e3]/50 border-transparent text-[#a0b5a0]' : 'bg-[#fff9c4] border-[#fff59d] text-[#f57f17] active:bg-[#fff59d]'}`}>
-                      <i className="fa-solid fa-lightbulb text-lg"></i> 提示
-                      <span className={`absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-bold ${hintsRemaining > 0 ? 'bg-[#fbc02d] text-white shadow-sm' : 'bg-[#a0b5a0] text-white'}`}>
+                    <button onClick={useHint} disabled={!isPlaying || hintsRemaining <= 0 || !selectedCell || board[selectedCell[0]][selectedCell[1]].isGiven} className={`py-2 rounded-2xl flex flex-col justify-center items-center gap-1 font-bold text-[11px] transition-colors border relative ${(!isPlaying || hintsRemaining <= 0) ? 'bg-[#e0f0e3]/50 border-transparent text-[#a0b5a0]' : 'bg-[#fff9c4] border-[#fff59d] text-[#f57f17] active:bg-[#fff59d]'}`}>
+                      <i className="fa-solid fa-lightbulb text-base"></i> 提示
+                      <span className={`absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[9px] font-bold ${hintsRemaining > 0 ? 'bg-[#fbc02d] text-white shadow-sm' : 'bg-[#a0b5a0] text-white'}`}>
                         {hintsRemaining}
                       </span>
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-5 gap-2 mt-1">
+                  <div className="grid grid-cols-5 gap-1.5">
                     {[1, 2, 3, 4, 5].map(num => (
-                      <button key={num} onClick={() => handleInput(num)} disabled={!isPlaying} className="bg-[#fdfbf7] border-b-4 border-[#e0ddcd] active:border-b-0 active:translate-y-1 text-[#4a3f35] text-2xl sm:text-3xl font-black py-4 rounded-3xl shadow-sm touch-manipulation">
+                      <button key={num} onClick={() => handleInput(num)} disabled={!isPlaying} className="bg-[#fdfbf7] border-b-4 border-[#e0ddcd] active:border-b-0 active:translate-y-1 text-[#4a3f35] text-2xl font-black h-11 sm:h-12 rounded-2xl shadow-sm touch-manipulation">
                         {num}
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-5 gap-1.5">
                     {[6, 7, 8, 9].map(num => (
-                      <button key={num} onClick={() => handleInput(num)} disabled={!isPlaying} className="bg-[#fdfbf7] border-b-4 border-[#e0ddcd] active:border-b-0 active:translate-y-1 text-[#4a3f35] text-2xl sm:text-3xl font-black py-4 rounded-3xl shadow-sm touch-manipulation">
+                      <button key={num} onClick={() => handleInput(num)} disabled={!isPlaying} className="bg-[#fdfbf7] border-b-4 border-[#e0ddcd] active:border-b-0 active:translate-y-1 text-[#4a3f35] text-2xl font-black h-11 sm:h-12 rounded-2xl shadow-sm touch-manipulation">
                         {num}
                       </button>
                     ))}
-                    <button onClick={() => setIsPlaying(!isPlaying)} disabled={isSolved || isLoading || showRestReminder} className="bg-[#8b7355] border-b-4 border-[#5c4a3d] active:border-b-0 active:translate-y-1 text-[#f5f5dc] text-sm font-bold py-4 rounded-3xl shadow-sm flex flex-col items-center justify-center touch-manipulation">
-                      {isPlaying ? <i className="fa-solid fa-pause text-2xl"></i> : <i className="fa-solid fa-play text-2xl"></i>}
+                    <button onClick={() => setIsPlaying(!isPlaying)} disabled={isSolved || isLoading || showRestReminder} className="bg-[#8b7355] border-b-4 border-[#5c4a3d] active:border-b-0 active:translate-y-1 text-[#f5f5dc] text-sm font-bold h-11 sm:h-12 rounded-2xl shadow-sm flex flex-col items-center justify-center touch-manipulation">
+                      {isPlaying ? <i className="fa-solid fa-pause text-xl"></i> : <i className="fa-solid fa-play text-xl"></i>}
                     </button>
                   </div>
                 </div>
               </div>
 
+              {/* 記錄 Modal */}
               {showRecords && (
                 <div className="fixed inset-0 bg-[#2f4f2f]/60 backdrop-blur-sm z-50 flex justify-center items-end sm:items-center">
                   <div className="bg-[#f0f7f1] w-full max-w-md h-[80vh] sm:h-[60vh] rounded-t-[2rem] sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-8">
